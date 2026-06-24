@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="My Expenses">
+  <title>My Expenses</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/tabler-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #ffffff;
+      --bg-secondary: #f5f5f4;
+      --bg-tertiary: #eeece9;
+      --text: #1a1a1a;
+      --text-secondary: #6b7280;
+      --text-tertiary: #9ca3af;
+      --border: rgba(0,0,0,0.12);
+      --border-md: rgba(0,0,0,0.2);
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --green: #1D9E75;
+      --red: #E24B4A;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1e;
+        --bg-secondary: #2c2c2e;
+        --bg-tertiary: #3a3a3c;
+        --text: #f2f2f7;
+        --text-secondary: #aeaeb2;
+        --text-tertiary: #636366;
+        --border: rgba(255,255,255,0.12);
+        --border-md: rgba(255,255,255,0.2);
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-secondary);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 2rem;
+    }
+
+    header {
+      background: var(--bg);
+      border-bottom: 0.5px solid var(--border);
+      padding: 1rem 1.25rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+    }
+
+    .app { max-width: 480px; margin: 0 auto; padding: 1rem; }
+
+    .tabs {
+      display: flex;
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 9px;
+      font-size: 14px;
+      font-weight: 500;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+
+    .tab.active {
+      background: var(--bg-secondary);
+      color: var(--text);
+    }
+
+    .card {
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .field { margin-bottom: 1rem; }
+    .field:last-child { margin-bottom: 0; }
+
+    .field label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      padding: 9px 11px;
+      font-size: 15px;
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg);
+      color: var(--text);
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .field input:focus,
+    .field select:focus {
+      outline: none;
+      border-color: var(--border-md);
+    }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .amount-wrap { position: relative; }
+    .amount-wrap .rupee {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 15px;
+      color: var(--text-secondary);
+      pointer-events: none;
+    }
+    .amount-wrap input { padding-left: 26px; }
+
+    .btn-primary {
+      width: 100%;
+      padding: 11px;
+      font-size: 15px;
+      font-weight: 500;
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 1rem;
+      transition: opacity 0.15s;
+    }
+    .btn-primary:active { opacity: 0.8; transform: scale(0.99); }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+
+    .metric {
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 0.85rem 1rem;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .filter-row select {
+      flex: 1;
+      padding: 8px 10px;
+      font-size: 13px;
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg);
+      color: var(--text);
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .expense-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .expense-item {
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .expense-left { flex: 1; min-width: 0; }
+
+    .expense-cat {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .expense-cat span { font-weight: 400; color: var(--text-secondary); }
+
+    .expense-note {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .expense-date {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-top: 3px;
+    }
+
+    .expense-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .expense-amount {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .del-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-tertiary);
+      font-size: 18px;
+      padding: 4px;
+      line-height: 1;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+    }
+    .del-btn:hover { color: var(--red); background: rgba(226,75,74,0.08); }
+
+    .export-btn {
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      background: transparent;
+      border: 0.5px solid var(--border-md);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 1rem;
+      transition: background 0.15s;
+    }
+    .export-btn:hover { background: var(--bg-tertiary); }
+    .export-btn:active { transform: scale(0.98); }
+
+    .empty {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+    .empty i { font-size: 36px; display: block; margin-bottom: 10px; color: var(--text-tertiary); }
+
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--green);
+      color: #fff;
+      padding: 9px 22px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.25s;
+      pointer-events: none;
+      z-index: 99;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+      margin-bottom: 8px;
+      padding-left: 2px;
+    }
+
+    select option { background: var(--bg); color: var(--text); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1><i class="ti ti-wallet" aria-hidden="true"></i> My Expenses</h1>
+</header>
+
+<div class="app">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('add')">
+      <i class="ti ti-plus" aria-hidden="true"></i> Add Expense
+    </button>
+    <button class="tab" onclick="showTab('list')">
+      <i class="ti ti-list" aria-hidden="true"></i> History
+    </button>
+  </div>
+
+  <!-- ADD TAB -->
+  <div id="tab-add">
+    <p class="section-title">Expense details</p>
+    <div class="card">
+      <div class="row">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="exp-date">
+        </div>
+        <div class="field">
+          <label>Time</label>
+          <input type="time" id="exp-time">
+        </div>
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <select id="exp-cat" onchange="updateSubCats()">
+          <option value="">Select category</option>
+          <option>Food & Drinks</option>
+          <option>Transport</option>
+          <option>Shopping</option>
+          <option>Bills</option>
+          <option>Health</option>
+          <option>Entertainment</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Sub-category</label>
+        <select id="exp-sub">
+          <option value="">Select sub-category</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Amount</label>
+        <div class="amount-wrap">
+          <span class="rupee">₹</span>
+          <input type="number" id="exp-amount" placeholder="0" min="0" inputmode="decimal" step="0.01">
+        </div>
+      </div>
+      <div class="field">
+        <label>Note <span style="font-weight:400;color:var(--text-tertiary)">(optional)</span></label>
+        <input type="text" id="exp-note" placeholder="e.g. lunch with team">
+      </div>
+      <button class="btn-primary" onclick="saveExpense()">
+        <i class="ti ti-plus" aria-hidden="true"></i> Add Expense
+      </button>
+    </div>
+  </div>
+
+  <!-- LIST TAB -->
+  <div id="tab-list" style="display:none">
+    <div class="summary-grid">
+      <div class="metric">
+        <div class="metric-label">Total entries</div>
+        <div class="metric-value" id="total-count">0</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Total spent</div>
+        <div class="metric-value" id="total-amount">₹0</div>
+      </div>
+    </div>
+
+    <button class="export-btn" onclick="exportCSV()">
+      <i class="ti ti-download" aria-hidden="true"></i> Export as CSV
+    </button>
+
+    <div class="filter-row">
+      <select id="filter-cat" onchange="renderList()">
+        <option value="">All categories</option>
+        <option>Food & Drinks</option>
+        <option>Transport</option>
+        <option>Shopping</option>
+        <option>Bills</option>
+        <option>Health</option>
+        <option>Entertainment</option>
+        <option>Other</option>
+      </select>
+      <select id="filter-sort" onchange="renderList()">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="highest">Highest amount</option>
+        <option value="lowest">Lowest amount</option>
+      </select>
+    </div>
+
+    <div class="expense-list" id="expense-list"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const SUBCATS = {
+    "Food & Drinks": ["Groceries","Restaurant","Coffee","Snacks","Alcohol","Other"],
+    "Transport": ["Fuel","Cab / Auto","Metro / Bus","Parking","Flight","Other"],
+    "Shopping": ["Clothes","Electronics","Home & Kitchen","Books","Accessories","Other"],
+    "Bills": ["Electricity","Internet","Phone","Rent","Water","OTT / Subscriptions","Other"],
+    "Health": ["Medicine","Doctor","Gym","Lab Tests","Other"],
+    "Entertainment": ["Movies","Events","Games","Sports","Other"],
+    "Other": ["Miscellaneous","Gift","Donation","Other"]
+  };
+
+  function updateSubCats() {
+    const cat = document.getElementById('exp-cat').value;
+    const sub = document.getElementById('exp-sub');
+    sub.innerHTML = '<option value="">Select sub-category</option>';
+    if (cat && SUBCATS[cat]) {
+      SUBCATS[cat].forEach(s => {
+        const o = document.createElement('option');
+        o.textContent = s;
+        sub.appendChild(o);
+      });
+    }
+  }
+
+  function getNow() {
+    const d = new Date();
+    const date = d.toISOString().split('T')[0];
+    const time = d.toTimeString().slice(0, 5);
+    return { date, time };
+  }
+
+  function init() {
+    const { date, time } = getNow();
+    document.getElementById('exp-date').value = date;
+    document.getElementById('exp-time').value = time;
+  }
+
+  function getExpenses() {
+    try { return JSON.parse(localStorage.getItem('myexpenses') || '[]'); }
+    catch { return []; }
+  }
+
+  function saveExpenses(arr) {
+    localStorage.setItem('myexpenses', JSON.stringify(arr));
+  }
+
+  function saveExpense() {
+    const date = document.getElementById('exp-date').value;
+    const time = document.getElementById('exp-time').value;
+    const cat = document.getElementById('exp-cat').value;
+    const sub = document.getElementById('exp-sub').value;
+    const amount = parseFloat(document.getElementById('exp-amount').value);
+    const note = document.getElementById('exp-note').value.trim();
+
+    if (!date || !time) return showToast('Please set date and time', 'err');
+    if (!cat) return showToast('Please select a category', 'err');
+    if (!sub) return showToast('Please select a sub-category', 'err');
+    if (!amount || amount <= 0) return showToast('Please enter a valid amount', 'err');
+
+    const expenses = getExpenses();
+    expenses.push({ id: Date.now(), date, time, cat, sub, amount, note });
+    saveExpenses(expenses);
+
+    document.getElementById('exp-cat').value = '';
+    document.getElementById('exp-sub').innerHTML = '<option value="">Select sub-category</option>';
+    document.getElementById('exp-amount').value = '';
+    document.getElementById('exp-note').value = '';
+    const n = getNow();
+    document.getElementById('exp-date').value = n.date;
+    document.getElementById('exp-time').value = n.time;
+
+    showToast('Expense added!');
+  }
+
+  function deleteExpense(id) {
+    if (!confirm('Delete this expense?')) return;
+    saveExpenses(getExpenses().filter(e => e.id !== id));
+    renderList();
+  }
+
+  function formatDate(d) {
+    const [y, m, day] = d.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`;
+  }
+
+  function renderList() {
+    const filterCat = document.getElementById('filter-cat').value;
+    const sort = document.getElementById('filter-sort').value;
+    let expenses = getExpenses();
+
+    if (filterCat) expenses = expenses.filter(e => e.cat === filterCat);
+
+    if (sort === 'newest') expenses.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+    else if (sort === 'oldest') expenses.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    else if (sort === 'highest') expenses.sort((a, b) => b.amount - a.amount);
+    else if (sort === 'lowest') expenses.sort((a, b) => a.amount - b.amount);
+
+    updateSummary(expenses);
+
+    const list = document.getElementById('expense-list');
+    if (!expenses.length) {
+      list.innerHTML = `<div class="empty"><i class="ti ti-receipt-off"></i>No expenses found</div>`;
+      return;
+    }
+
+    list.innerHTML = expenses.map(e => `
+      <div class="expense-item">
+        <div class="expense-left">
+          <div class="expense-cat">${e.cat} &middot; <span>${e.sub}</span></div>
+          ${e.note ? `<div class="expense-note">${e.note}</div>` : ''}
+          <div class="expense-date">${formatDate(e.date)} at ${e.time}</div>
+        </div>
+        <div class="expense-right">
+          <div class="expense-amount">₹${e.amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</div>
+          <button class="del-btn" onclick="deleteExpense(${e.id})" aria-label="Delete expense">
+            <i class="ti ti-trash" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function updateSummary(filtered) {
+    const all = getExpenses();
+    const list = filtered !== undefined ? filtered : all;
+    document.getElementById('total-count').textContent = all.length;
+    const total = all.reduce((s, e) => s + e.amount, 0);
+    document.getElementById('total-amount').textContent = '₹' + total.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  }
+
+  function exportCSV() {
+    const expenses = getExpenses();
+    if (!expenses.length) return showToast('No expenses to export', 'err');
+    const header = ['Date', 'Time', 'Category', 'Sub-category', 'Amount (INR)', 'Note'];
+    const rows = expenses
+      .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+      .map(e => [e.date, e.time, e.cat, e.sub, e.amount, e.note || '']);
+    const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `expenses_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('CSV downloaded!');
+  }
+
+  function showTab(tab) {
+    document.getElementById('tab-add').style.display = tab === 'add' ? 'block' : 'none';
+    document.getElementById('tab-list').style.display = tab === 'list' ? 'block' : 'none';
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', (tab === 'add' && i === 0) || (tab === 'list' && i === 1));
+    });
+    if (tab === 'list') renderList();
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.background = type === 'err' ? '#E24B4A' : '#1D9E75';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  init();
+</script>
+</body>
+</html>
