@@ -164,6 +164,7 @@
       transition: opacity 0.15s;
     }
     .btn-primary:active { opacity: 0.8; transform: scale(0.99); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .summary-grid {
       display: grid;
@@ -394,7 +395,7 @@
         <label>Note <span style="font-weight:400;color:var(--text-tertiary)">(optional)</span></label>
         <input type="text" id="exp-note" placeholder="e.g. lunch with team">
       </div>
-      <button class="btn-primary" onclick="saveExpense()">
+      <button class="btn-primary" id="add-btn" onclick="saveExpense()">
         <i class="ti ti-plus" aria-hidden="true"></i> Add Expense
       </button>
     </div>
@@ -442,7 +443,27 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Firebase v9 compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
 <script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDeARdPMD7ulABbBsFM2RtsS5Y8xSxlSvg",
+    authDomain: "my-expense-tracker-48147.firebaseapp.com",
+    projectId: "my-expense-tracker-48147",
+    storageBucket: "my-expense-tracker-48147.firebasestorage.app",
+    messagingSenderId: "382617851543",
+    appId: "1:382617851543:web:26558026ac4566cfc53bd2",
+    measurementId: "G-73F3Y252VX"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  // In-memory cache kept in sync by the Firestore listener
+  let expenses = [];
+
   const SUBCATS = {
     "Food & Drinks": ["Groceries","Restaurant","Lunch","Dinner","Snacks","Coffee","Alcohol","Other"],
     "Transport": ["Fuel","Cab / Auto","Metro / Bus","Parking","Flight","Other"],
@@ -477,18 +498,21 @@
     const { date, time } = getNow();
     document.getElementById('exp-date').value = date;
     document.getElementById('exp-time').value = time;
+
+    // Real-time listener — updates the in-memory cache and refreshes UI
+    db.collection('expenses').onSnapshot(snapshot => {
+      expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      updateSummary();
+      if (document.getElementById('tab-list').style.display !== 'none') {
+        renderList();
+      }
+    }, err => {
+      console.error('Firestore error:', err);
+      showToast('Could not load expenses', 'err');
+    });
   }
 
-  function getExpenses() {
-    try { return JSON.parse(localStorage.getItem('myexpenses') || '[]'); }
-    catch { return []; }
-  }
-
-  function saveExpenses(arr) {
-    localStorage.setItem('myexpenses', JSON.stringify(arr));
-  }
-
-  function saveExpense() {
+  async function saveExpense() {
     const date = document.getElementById('exp-date').value;
     const time = document.getElementById('exp-time').value;
     const cat = document.getElementById('exp-cat').value;
@@ -501,25 +525,37 @@
     if (!sub) return showToast('Please select a sub-category', 'err');
     if (!amount || amount <= 0) return showToast('Please enter a valid amount', 'err');
 
-    const expenses = getExpenses();
-    expenses.push({ id: Date.now(), date, time, cat, sub, amount, note });
-    saveExpenses(expenses);
+    const btn = document.getElementById('add-btn');
+    btn.disabled = true;
 
-    document.getElementById('exp-cat').value = '';
-    document.getElementById('exp-sub').innerHTML = '<option value="">Select sub-category</option>';
-    document.getElementById('exp-amount').value = '';
-    document.getElementById('exp-note').value = '';
-    const n = getNow();
-    document.getElementById('exp-date').value = n.date;
-    document.getElementById('exp-time').value = n.time;
+    try {
+      await db.collection('expenses').add({ date, time, cat, sub, amount, note });
 
-    showToast('Expense added!');
+      document.getElementById('exp-cat').value = '';
+      document.getElementById('exp-sub').innerHTML = '<option value="">Select sub-category</option>';
+      document.getElementById('exp-amount').value = '';
+      document.getElementById('exp-note').value = '';
+      const n = getNow();
+      document.getElementById('exp-date').value = n.date;
+      document.getElementById('exp-time').value = n.time;
+
+      showToast('Expense added!');
+    } catch (err) {
+      console.error('Save failed:', err);
+      showToast('Failed to save expense', 'err');
+    } finally {
+      btn.disabled = false;
+    }
   }
 
-  function deleteExpense(id) {
+  async function deleteExpense(id) {
     if (!confirm('Delete this expense?')) return;
-    saveExpenses(getExpenses().filter(e => e.id !== id));
-    renderList();
+    try {
+      await db.collection('expenses').doc(id).delete();
+    } catch (err) {
+      console.error('Delete failed:', err);
+      showToast('Failed to delete expense', 'err');
+    }
   }
 
   function formatDate(d) {
@@ -531,24 +567,22 @@
   function renderList() {
     const filterCat = document.getElementById('filter-cat').value;
     const sort = document.getElementById('filter-sort').value;
-    let expenses = getExpenses();
+    let filtered = [...expenses];
 
-    if (filterCat) expenses = expenses.filter(e => e.cat === filterCat);
+    if (filterCat) filtered = filtered.filter(e => e.cat === filterCat);
 
-    if (sort === 'newest') expenses.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
-    else if (sort === 'oldest') expenses.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-    else if (sort === 'highest') expenses.sort((a, b) => b.amount - a.amount);
-    else if (sort === 'lowest') expenses.sort((a, b) => a.amount - b.amount);
-
-    updateSummary(expenses);
+    if (sort === 'newest') filtered.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+    else if (sort === 'oldest') filtered.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    else if (sort === 'highest') filtered.sort((a, b) => b.amount - a.amount);
+    else if (sort === 'lowest') filtered.sort((a, b) => a.amount - b.amount);
 
     const list = document.getElementById('expense-list');
-    if (!expenses.length) {
+    if (!filtered.length) {
       list.innerHTML = `<div class="empty"><i class="ti ti-receipt-off"></i>No expenses found</div>`;
       return;
     }
 
-    list.innerHTML = expenses.map(e => `
+    list.innerHTML = filtered.map(e => `
       <div class="expense-item">
         <div class="expense-left">
           <div class="expense-cat">${e.cat} &middot; <span>${e.sub}</span></div>
@@ -557,7 +591,7 @@
         </div>
         <div class="expense-right">
           <div class="expense-amount">₹${e.amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</div>
-          <button class="del-btn" onclick="deleteExpense(${e.id})" aria-label="Delete expense">
+          <button class="del-btn" onclick="deleteExpense('${e.id}')" aria-label="Delete expense">
             <i class="ti ti-trash" aria-hidden="true"></i>
           </button>
         </div>
@@ -565,19 +599,16 @@
     `).join('');
   }
 
-  function updateSummary(filtered) {
-    const all = getExpenses();
-    const list = filtered !== undefined ? filtered : all;
-    document.getElementById('total-count').textContent = all.length;
-    const total = all.reduce((s, e) => s + e.amount, 0);
+  function updateSummary() {
+    document.getElementById('total-count').textContent = expenses.length;
+    const total = expenses.reduce((s, e) => s + e.amount, 0);
     document.getElementById('total-amount').textContent = '₹' + total.toLocaleString('en-IN', { maximumFractionDigits: 2 });
   }
 
   function exportCSV() {
-    const expenses = getExpenses();
     if (!expenses.length) return showToast('No expenses to export', 'err');
     const header = ['Date', 'Time', 'Category', 'Sub-category', 'Amount (INR)', 'Note'];
-    const rows = expenses
+    const rows = [...expenses]
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
       .map(e => [e.date, e.time, e.cat, e.sub, e.amount, e.note || '']);
     const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
