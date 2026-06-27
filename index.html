@@ -541,6 +541,11 @@
     </button>
 
     <div class="filter-row">
+      <select id="filter-month" onchange="renderList()">
+        <option value="">All months</option>
+      </select>
+    </div>
+    <div class="filter-row">
       <select id="filter-cat" onchange="onCatFilterChange()">
         <option value="">All categories</option>
         <option>Food & Drinks</option>
@@ -713,6 +718,7 @@
     // Real-time listener — updates the in-memory cache and refreshes UI
     db.collection('expenses').onSnapshot(snapshot => {
       expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      populateMonthFilter();
       updateSummary();
       if (document.getElementById('tab-list').style.display !== 'none') {
         renderList();
@@ -778,6 +784,22 @@
     return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`;
   }
 
+  function populateMonthFilter() {
+    const months = [...new Set(expenses.map(e => e.date.slice(0, 7)))].sort().reverse();
+    const sel = document.getElementById('filter-month');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">All months</option>';
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    months.forEach(m => {
+      const [y, mo] = m.split('-');
+      const o = document.createElement('option');
+      o.value = m;
+      o.textContent = `${monthNames[parseInt(mo) - 1]} ${y}`;
+      if (m === current) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
   function onCatFilterChange() {
     const cat = document.getElementById('filter-cat').value;
     const subSel = document.getElementById('filter-sub');
@@ -793,16 +815,18 @@
   }
 
   function renderList() {
+    const filterMonth = document.getElementById('filter-month').value;
     const filterCat = document.getElementById('filter-cat').value;
     const filterSub = document.getElementById('filter-sub').value;
     let filtered = [...expenses];
 
+    if (filterMonth) filtered = filtered.filter(e => e.date.startsWith(filterMonth));
     if (filterCat) filtered = filtered.filter(e => e.cat === filterCat);
     if (filterSub) filtered = filtered.filter(e => e.sub === filterSub);
 
     filtered.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
 
-    const isFiltered = filterCat || filterSub;
+    const isFiltered = filterMonth || filterCat || filterSub;
     document.getElementById('count-label').textContent = isFiltered ? 'Filtered entries' : 'Total entries';
     document.getElementById('amount-label').textContent = isFiltered ? 'Filtered spend' : 'Total spent';
     document.getElementById('total-count').textContent = filtered.length;
