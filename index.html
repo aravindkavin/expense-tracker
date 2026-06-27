@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="My Expenses">
   <title>My Expenses</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/tabler-icons.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -333,6 +333,119 @@
     }
 
     select option { background: var(--bg); color: var(--text); }
+
+    .edit-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-tertiary);
+      font-size: 18px;
+      padding: 4px;
+      line-height: 1;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+    }
+    .edit-btn:hover { color: var(--green); background: rgba(29,158,117,0.08); }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 50;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0 0 env(safe-area-inset-bottom, 0);
+    }
+    .modal-overlay.hidden { display: none; }
+
+    .modal {
+      background: var(--bg);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      width: 100%;
+      max-width: 480px;
+      padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom, 0));
+      max-height: 92vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+
+    .modal-title { font-size: 17px; font-weight: 600; }
+
+    .modal-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 20px;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      border-radius: 6px;
+    }
+    .modal-close:hover { background: var(--bg-tertiary); }
+
+    .dine-toggle {
+      display: flex;
+      background: var(--bg-secondary);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    .dine-toggle button {
+      flex: 1;
+      padding: 7px 8px;
+      font-size: 13px;
+      font-weight: 500;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--text-secondary);
+      border-radius: 6px;
+      transition: all 0.15s;
+    }
+
+    .dine-toggle button.active {
+      background: var(--bg);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .dine-badge {
+      display: inline-block;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      background: var(--bg-secondary);
+      border: 0.5px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 11px;
+      font-size: 15px;
+      font-weight: 500;
+      background: transparent;
+      color: var(--text);
+      border: 0.5px solid var(--border-md);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+    .btn-secondary:active { opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -370,11 +483,13 @@
         <select id="exp-cat" onchange="updateSubCats()">
           <option value="">Select category</option>
           <option>Food & Drinks</option>
+          <option>Groceries</option>
           <option>Transport</option>
           <option>Shopping</option>
           <option>Bills</option>
           <option>Health</option>
           <option>Entertainment</option>
+          <option>Sports</option>
           <option>Other</option>
         </select>
       </div>
@@ -383,6 +498,13 @@
         <select id="exp-sub">
           <option value="">Select sub-category</option>
         </select>
+      </div>
+      <div class="field" id="dine-wrap" style="display:none">
+        <label>Meal type</label>
+        <div class="dine-toggle">
+          <button type="button" id="dine-in-btn" class="active" onclick="setDineType('in')">Order In</button>
+          <button type="button" id="dine-out-btn" onclick="setDineType('out')">Dine Out</button>
+        </div>
       </div>
       <div class="field">
         <label>Amount</label>
@@ -405,11 +527,11 @@
   <div id="tab-list" style="display:none">
     <div class="summary-grid">
       <div class="metric">
-        <div class="metric-label">Total entries</div>
+        <div class="metric-label" id="count-label">Total entries</div>
         <div class="metric-value" id="total-count">0</div>
       </div>
       <div class="metric">
-        <div class="metric-label">Total spent</div>
+        <div class="metric-label" id="amount-label">Total spent</div>
         <div class="metric-value" id="total-amount">₹0</div>
       </div>
     </div>
@@ -419,21 +541,20 @@
     </button>
 
     <div class="filter-row">
-      <select id="filter-cat" onchange="renderList()">
+      <select id="filter-cat" onchange="onCatFilterChange()">
         <option value="">All categories</option>
         <option>Food & Drinks</option>
+        <option>Groceries</option>
         <option>Transport</option>
         <option>Shopping</option>
         <option>Bills</option>
         <option>Health</option>
         <option>Entertainment</option>
+        <option>Sports</option>
         <option>Other</option>
       </select>
-      <select id="filter-sort" onchange="renderList()">
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-        <option value="highest">Highest amount</option>
-        <option value="lowest">Lowest amount</option>
+      <select id="filter-sub" onchange="renderList()">
+        <option value="">All sub-categories</option>
       </select>
     </div>
 
@@ -442,6 +563,71 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay hidden" id="edit-modal" onclick="handleModalOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Edit Expense</span>
+      <button class="modal-close" onclick="closeEditModal()" aria-label="Close">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="edit-date">
+      </div>
+      <div class="field">
+        <label>Time</label>
+        <input type="time" id="edit-time">
+      </div>
+    </div>
+    <div class="field">
+      <label>Category</label>
+      <select id="edit-cat" onchange="updateSubCatsModal()">
+        <option value="">Select category</option>
+        <option>Food &amp; Drinks</option>
+        <option>Groceries</option>
+        <option>Transport</option>
+        <option>Shopping</option>
+        <option>Bills</option>
+        <option>Health</option>
+        <option>Entertainment</option>
+        <option>Sports</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Sub-category</label>
+      <select id="edit-sub">
+        <option value="">Select sub-category</option>
+      </select>
+    </div>
+    <div class="field" id="edit-dine-wrap" style="display:none">
+      <label>Meal type</label>
+      <div class="dine-toggle">
+        <button type="button" id="edit-dine-in-btn" class="active" onclick="setEditDineType('in')">Order In</button>
+        <button type="button" id="edit-dine-out-btn" onclick="setEditDineType('out')">Dine Out</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Amount</label>
+      <div class="amount-wrap">
+        <span class="rupee">₹</span>
+        <input type="number" id="edit-amount" placeholder="0" min="0" inputmode="decimal" step="0.01">
+      </div>
+    </div>
+    <div class="field">
+      <label>Note <span style="font-weight:400;color:var(--text-tertiary)">(optional)</span></label>
+      <input type="text" id="edit-note" placeholder="e.g. lunch with team">
+    </div>
+    <button class="btn-primary" id="edit-save-btn" onclick="updateExpense()">
+      <i class="ti ti-check" aria-hidden="true"></i> Save Changes
+    </button>
+    <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
+  </div>
+</div>
 
 <!-- Firebase v9 compat SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -465,14 +651,31 @@
   let expenses = [];
 
   const SUBCATS = {
-    "Food & Drinks": ["Groceries","Restaurant","Lunch","Dinner","Snacks","Coffee","Alcohol","Other"],
+    "Food & Drinks": ["Restaurant","Lunch","Dinner","Snacks","Coffee","Alcohol","Other"],
+    "Groceries": ["Snacks","Egg","Vegetables","Other"],
     "Transport": ["Fuel","Cab / Auto","Metro / Bus","Parking","Flight","Other"],
     "Shopping": ["Clothes","Electronics","Home & Kitchen","Books","Accessories","Other"],
     "Bills": ["Electricity","Internet","Phone","Rent","Water","OTT / Subscriptions","Other"],
     "Health": ["Medicine","Doctor","Gym","Lab Tests","Other"],
     "Entertainment": ["Movies","Events","Games","Sports","Other"],
+    "Sports": ["Badminton","Cricket","Gym","Other"],
     "Other": ["Miscellaneous","Gift","Donation","Other"]
   };
+
+  let dineType = 'in';
+  let editDineType = 'in';
+
+  function setDineType(type) {
+    dineType = type;
+    document.getElementById('dine-in-btn').classList.toggle('active', type === 'in');
+    document.getElementById('dine-out-btn').classList.toggle('active', type === 'out');
+  }
+
+  function setEditDineType(type) {
+    editDineType = type;
+    document.getElementById('edit-dine-in-btn').classList.toggle('active', type === 'in');
+    document.getElementById('edit-dine-out-btn').classList.toggle('active', type === 'out');
+  }
 
   function updateSubCats() {
     const cat = document.getElementById('exp-cat').value;
@@ -484,6 +687,14 @@
         o.textContent = s;
         sub.appendChild(o);
       });
+    }
+    const wrap = document.getElementById('dine-wrap');
+    if (cat === 'Food & Drinks') {
+      wrap.style.display = 'block';
+      dineType = 'in';
+      setDineType('in');
+    } else {
+      wrap.style.display = 'none';
     }
   }
 
@@ -529,10 +740,13 @@
     btn.disabled = true;
 
     try {
-      await db.collection('expenses').add({ date, time, cat, sub, amount, note });
+      const exp = { date, time, cat, sub, amount, note };
+      if (cat === 'Food & Drinks') exp.dineType = dineType;
+      await db.collection('expenses').add(exp);
 
       document.getElementById('exp-cat').value = '';
       document.getElementById('exp-sub').innerHTML = '<option value="">Select sub-category</option>';
+      document.getElementById('dine-wrap').style.display = 'none';
       document.getElementById('exp-amount').value = '';
       document.getElementById('exp-note').value = '';
       const n = getNow();
@@ -564,17 +778,36 @@
     return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`;
   }
 
+  function onCatFilterChange() {
+    const cat = document.getElementById('filter-cat').value;
+    const subSel = document.getElementById('filter-sub');
+    subSel.innerHTML = '<option value="">All sub-categories</option>';
+    if (cat && SUBCATS[cat]) {
+      SUBCATS[cat].forEach(s => {
+        const o = document.createElement('option');
+        o.textContent = s;
+        subSel.appendChild(o);
+      });
+    }
+    renderList();
+  }
+
   function renderList() {
     const filterCat = document.getElementById('filter-cat').value;
-    const sort = document.getElementById('filter-sort').value;
+    const filterSub = document.getElementById('filter-sub').value;
     let filtered = [...expenses];
 
     if (filterCat) filtered = filtered.filter(e => e.cat === filterCat);
+    if (filterSub) filtered = filtered.filter(e => e.sub === filterSub);
 
-    if (sort === 'newest') filtered.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
-    else if (sort === 'oldest') filtered.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-    else if (sort === 'highest') filtered.sort((a, b) => b.amount - a.amount);
-    else if (sort === 'lowest') filtered.sort((a, b) => a.amount - b.amount);
+    filtered.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+
+    const isFiltered = filterCat || filterSub;
+    document.getElementById('count-label').textContent = isFiltered ? 'Filtered entries' : 'Total entries';
+    document.getElementById('amount-label').textContent = isFiltered ? 'Filtered spend' : 'Total spent';
+    document.getElementById('total-count').textContent = filtered.length;
+    const filteredTotal = filtered.reduce((s, e) => s + e.amount, 0);
+    document.getElementById('total-amount').textContent = '₹' + filteredTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
     const list = document.getElementById('expense-list');
     if (!filtered.length) {
@@ -585,14 +818,17 @@
     list.innerHTML = filtered.map(e => `
       <div class="expense-item">
         <div class="expense-left">
-          <div class="expense-cat">${e.cat} &middot; <span>${e.sub}</span></div>
+          <div class="expense-cat">${e.cat} &middot; <span>${e.sub}</span>${e.dineType ? `<span class="dine-badge">${e.dineType === 'in' ? 'Order In' : 'Dine Out'}</span>` : ''}</div>
           ${e.note ? `<div class="expense-note">${e.note}</div>` : ''}
           <div class="expense-date">${formatDate(e.date)} at ${e.time}</div>
         </div>
         <div class="expense-right">
           <div class="expense-amount">₹${e.amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</div>
-          <button class="del-btn" onclick="deleteExpense('${e.id}')" aria-label="Delete expense">
-            <i class="ti ti-trash" aria-hidden="true"></i>
+          <button class="edit-btn" onclick="openEditModal('${e.id}')" aria-label="Edit expense" title="Edit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10.5-10.5a2.828 2.828 0 1 0-4-4L4 16v4"/><path d="M13.5 6.5l4 4"/></svg>
+          </button>
+          <button class="del-btn" onclick="deleteExpense('${e.id}')" aria-label="Delete expense" title="Delete">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>
           </button>
         </div>
       </div>
@@ -600,6 +836,8 @@
   }
 
   function updateSummary() {
+    document.getElementById('count-label').textContent = 'Total entries';
+    document.getElementById('amount-label').textContent = 'Total spent';
     document.getElementById('total-count').textContent = expenses.length;
     const total = expenses.reduce((s, e) => s + e.amount, 0);
     document.getElementById('total-amount').textContent = '₹' + total.toLocaleString('en-IN', { maximumFractionDigits: 2 });
@@ -607,10 +845,10 @@
 
   function exportCSV() {
     if (!expenses.length) return showToast('No expenses to export', 'err');
-    const header = ['Date', 'Time', 'Category', 'Sub-category', 'Amount (INR)', 'Note'];
+    const header = ['Date', 'Time', 'Category', 'Sub-category', 'Meal Type', 'Amount (INR)', 'Note'];
     const rows = [...expenses]
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
-      .map(e => [e.date, e.time, e.cat, e.sub, e.amount, e.note || '']);
+      .map(e => [e.date, e.time, e.cat, e.sub, e.dineType === 'in' ? 'Order In' : e.dineType === 'out' ? 'Dine Out' : '', e.amount, e.note || '']);
     const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -639,6 +877,86 @@
     t.style.background = type === 'err' ? '#E24B4A' : '#1D9E75';
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  let editingId = null;
+
+  function openEditModal(id) {
+    const e = expenses.find(x => x.id === id);
+    if (!e) return;
+    editingId = id;
+    document.getElementById('edit-date').value = e.date;
+    document.getElementById('edit-time').value = e.time;
+    document.getElementById('edit-cat').value = e.cat;
+    editDineType = e.dineType || 'in';
+    updateSubCatsModal(e.sub);
+    document.getElementById('edit-amount').value = e.amount;
+    document.getElementById('edit-note').value = e.note || '';
+    document.getElementById('edit-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function updateSubCatsModal(selectedSub) {
+    const cat = document.getElementById('edit-cat').value;
+    const sub = document.getElementById('edit-sub');
+    sub.innerHTML = '<option value="">Select sub-category</option>';
+    if (cat && SUBCATS[cat]) {
+      SUBCATS[cat].forEach(s => {
+        const o = document.createElement('option');
+        o.textContent = s;
+        if (s === selectedSub) o.selected = true;
+        sub.appendChild(o);
+      });
+    }
+    const wrap = document.getElementById('edit-dine-wrap');
+    if (cat === 'Food & Drinks') {
+      wrap.style.display = 'block';
+      if (selectedSub === undefined) editDineType = 'in';
+      setEditDineType(editDineType);
+    } else {
+      wrap.style.display = 'none';
+    }
+  }
+
+  function closeEditModal() {
+    document.getElementById('edit-modal').classList.add('hidden');
+    document.body.style.overflow = '';
+    editingId = null;
+  }
+
+  function handleModalOverlayClick(e) {
+    if (e.target === document.getElementById('edit-modal')) closeEditModal();
+  }
+
+  async function updateExpense() {
+    const date = document.getElementById('edit-date').value;
+    const time = document.getElementById('edit-time').value;
+    const cat = document.getElementById('edit-cat').value;
+    const sub = document.getElementById('edit-sub').value;
+    const amount = parseFloat(document.getElementById('edit-amount').value);
+    const note = document.getElementById('edit-note').value.trim();
+
+    if (!date || !time) return showToast('Please set date and time', 'err');
+    if (!cat) return showToast('Please select a category', 'err');
+    if (!sub) return showToast('Please select a sub-category', 'err');
+    if (!amount || amount <= 0) return showToast('Please enter a valid amount', 'err');
+
+    const btn = document.getElementById('edit-save-btn');
+    btn.disabled = true;
+
+    try {
+      const upd = { date, time, cat, sub, amount, note };
+      if (cat === 'Food & Drinks') upd.dineType = editDineType;
+      else upd.dineType = null;
+      await db.collection('expenses').doc(editingId).update(upd);
+      closeEditModal();
+      showToast('Expense updated!');
+    } catch (err) {
+      console.error('Update failed:', err);
+      showToast('Failed to update expense', 'err');
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   init();
